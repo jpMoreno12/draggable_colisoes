@@ -33,6 +33,11 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
   bool colisionChecked = false;
   late dynamic widget;
   late dynamic widget2;
+  late Widget widgetTarget;
+
+  getWidgetTarget(Widget widget) {
+    widgetTarget = widget;
+  }
 
   changePositions(Offset positions, int index, int id) {
     dragMode = true;
@@ -72,8 +77,6 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
           print('Houve uma colisão entre o widget $id e o widget ${otherWidget['id']}');
           overlap = true;
           colisionChecked = true;
-          widget = atualWidget;
-          widget2 = otherWidget;
           switchPositonWidgetsOnDragUpdate(atualWidget, otherWidget, positions);
 
           atualWidget['colisionColor'] = Colors.red.shade100;
@@ -89,99 +92,88 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
     notifyListeners();
   }
 
-switchPositonWidgetsOnDragUpdate(dynamic atualWidget, dynamic otherWidget, Offset globalPosition) {
-  // Coordenadas do widget atual
-  final atualLeft = atualWidget['positions'].dx;
-  final atualRight = atualLeft + atualWidget['size'].width;
-  final atualTop = atualWidget['positions'].dy;
-  final atualBottom = atualTop + atualWidget['size'].height;
+  switchPositonWidgetsOnDragUpdate(dynamic atualWidget, dynamic otherWidgets, Offset globalPosition) {
+    // Coordenadas do widget atual
+    final atualLeft = atualWidget['positions'].dx;
+    final atualRight = atualLeft + atualWidget['size'].width;
+    final atualTop = atualWidget['positions'].dy;
+    final atualBottom = atualTop + atualWidget['size'].height;
 
-  // Coordenadas do outro widget
-  final otherLeft = otherWidget['positions'].dx;
-  final otherRight = otherLeft + otherWidget['size'].width;
-  final otherTop = otherWidget['positions'].dy;
-  final otherBottom = otherTop + otherWidget['size'].height;
+    Offset newOffset = atualWidget['positions'];
+    bool canMove = true;
 
-  Offset newOffset = atualWidget['positions'];
+    // Coordenadas do outro widget
+    final otherLeft = otherWidgets['positions'].dx;
+    final otherRight = otherLeft + otherWidgets['size'].width;
+    final otherTop = otherWidgets['positions'].dy;
+    final otherBottom = otherTop + otherWidgets['size'].height;
 
-  // Distâncias de sobreposição (colisão)
-  final double overlapLeft = atualRight - otherLeft;
-  final double overlapRight = otherRight - atualLeft;
-  final double overlapTop = atualBottom - otherTop;
-  final double overlapBottom = otherBottom - atualTop;
+    final double overlapLeft = atualRight - otherLeft;
+    final double overlapRight = otherRight - atualLeft;
+    final double overlapTop = atualBottom - otherTop;
+    final double overlapBottom = otherBottom - atualTop;
 
-  final double minOverlap = [
-    overlapLeft.abs(),
-    overlapRight.abs(),
-    overlapTop.abs(),
-    overlapBottom.abs(),
-  ].reduce((a, b) => a < b ? a : b);
+    final double minOverlap = [
+      overlapLeft.abs(),
+      overlapRight.abs(),
+      overlapTop.abs(),
+      overlapBottom.abs(),
+    ].reduce((a, b) => a < b ? a : b);
 
-  // Verifica a direção da colisão e ajusta a posição
-  if (minOverlap == overlapLeft.abs()) {
-    // Colisão no lado esquerdo
-    newOffset = Offset(otherLeft - atualWidget['size'].width, atualWidget['positions'].dy);
-  } else if (minOverlap == overlapRight.abs()) {
-    // Colisão no lado direito
-    newOffset = Offset(otherRight, atualWidget['positions'].dy);
-  } else if (minOverlap == overlapTop.abs()) {
-    // Colisão no topo
-    newOffset = Offset(atualWidget['positions'].dx, otherTop - atualWidget['size'].height);
-  } else if (minOverlap == overlapBottom.abs()) {
-    // Colisão na parte inferior
-    newOffset = Offset(atualWidget['positions'].dx, otherBottom);
-  }
-
-  // Agora, precisamos garantir que o widget atual não se mova para um "buraco" entre dois widgets.
-  bool isValidPosition = false;
-  
-  // Verificando se a nova posição não está colidindo com outros widgets
-  while (!isValidPosition) {
-    isValidPosition = true; // Assume que a posição é válida
-
-    for (var widget in value['widgets']) {
-      if (widget['id'] != atualWidget['id']) {
-        final widgetLeft = widget['positions'].dx;
-        final widgetRight = widgetLeft + widget['size'].width;
-        final widgetTop = widget['positions'].dy;
-        final widgetBottom = widgetTop + widget['size'].height;
-
-        // Verifique a sobreposição horizontal e vertical
-        final horizontalOverlap = newOffset.dx + atualWidget['size'].width > widgetLeft &&
-                                  newOffset.dx < widgetRight;
-        final verticalOverlap = newOffset.dy + atualWidget['size'].height > widgetTop &&
-                                newOffset.dy < widgetBottom;
-
-        // Se houver sobreposição, a posição não é válida
-        if (horizontalOverlap && verticalOverlap) {
-          isValidPosition = false;
-          // Ajustar a posição para não sobrepor
-          // Você pode tentar uma nova estratégia de ajuste, dependendo do tipo de movimento
-          // Exemplo: mover o widget para a borda do outro widget
-          if (newOffset.dx < widgetLeft) {
-            newOffset = Offset(widgetLeft - atualWidget['size'].width, newOffset.dy);
-          } else if (newOffset.dx + atualWidget['size'].width > widgetRight) {
-            newOffset = Offset(widgetRight, newOffset.dy);
-          } else if (newOffset.dy < widgetTop) {
-            newOffset = Offset(newOffset.dx, widgetTop - atualWidget['size'].height);
-          } else if (newOffset.dy + atualWidget['size'].height > widgetBottom) {
-            newOffset = Offset(newOffset.dx, widgetBottom);
-          }
-          break;
-        }
-      }
+    // Verifica a direção da colisão e ajusta a posição
+    if (minOverlap == overlapLeft.abs()) {
+      // Colisão no lado esquerdo
+      newOffset = Offset(otherLeft - atualWidget['size'].width, atualWidget['positions'].dy);
+      print('object');
+    } else if (minOverlap == overlapRight.abs()) {
+      // Colisão no lado direito
+      newOffset = Offset(otherRight, atualWidget['positions'].dy);
+    } else if (minOverlap == overlapTop.abs()) {
+      // Colisão no topo
+      newOffset = Offset(atualWidget['positions'].dx, otherTop - atualWidget['size'].height);
+    } else if (minOverlap == overlapBottom.abs()) {
+      // Colisão na parte inferior
+      newOffset = Offset(atualWidget['positions'].dx, otherBottom);
     }
-  }
+    atualWidget['positions'] = newOffset;
 
-  // Atualiza a posição do widget atual se for uma posição válida
-  atualWidget['positions'] = newOffset;
-
-  notifyListeners();
-}
-
-
-
-  Widget createFeedbackWidget(Widget widget) {
-    return  widget;
+    notifyListeners();
   }
 }
+
+/* 
+    /colision logic
+    // Distâncias de sobreposição (colisão)
+    final double overlapLeft = atualRight - otherLeft;
+    final double overlapRight = otherRight - atualLeft;
+    final double overlapTop = atualBottom - otherTop;
+    final double overlapBottom = otherBottom - atualTop;
+
+    final double minOverlap = [
+      overlapLeft.abs(),
+      overlapRight.abs(),
+      overlapTop.abs(),
+      overlapBottom.abs(),
+    ].reduce((a, b) => a < b ? a : b);
+
+    // Verifica a direção da colisão e ajusta a posição
+    if (minOverlap == overlapLeft.abs()) {
+      // Colisão no lado esquerdo
+      newOffset = Offset(otherLeft - atualWidget['size'].width, atualWidget['positions'].dy);
+    } else if (minOverlap == overlapRight.abs()) {
+      // Colisão no lado direito
+      newOffset = Offset(otherRight, atualWidget['positions'].dy);
+    } else if (minOverlap == overlapTop.abs()) {
+      // Colisão no topo
+      newOffset = Offset(atualWidget['positions'].dx, otherTop - atualWidget['size'].height);
+    } else if (minOverlap == overlapBottom.abs()) {
+      // Colisão na parte inferior
+      newOffset = Offset(atualWidget['positions'].dx, otherBottom);
+    }
+
+    // Atualiza a posição do widget atual se for uma posição válida
+    atualWidget['positions'] = newOffset;
+
+
+
+ */

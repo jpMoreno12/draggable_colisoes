@@ -20,9 +20,11 @@ class _HitBoxWidgetState extends State<HitBoxWidget> {
     return Container(
       decoration: BoxDecoration(
           color: widget.alertOverlaps,
-          border: Border.all(
+     /*      border: Border.all(
             color: Colors.black,
-          )),
+          ), */
+          
+          ),
       width: widget.width,
       height: widget.height,
       child: Center(child: widget.child),

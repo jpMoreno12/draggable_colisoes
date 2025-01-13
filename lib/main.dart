@@ -49,20 +49,9 @@ class _GridTesteState extends State<GridTeste> {
       ),
       body: Stack(
         children: [
-          for (int i = 0; i < dragController.value['widgets'].length; i++)
+          
 
-            //Nota: O widget target nao precisa passar por cima de outro widget pois o widget que vai passar por cima de outro
-            // e o widget que esta debaixo do mouse
-            if (isDragging)
-              Positioned(
-                top: temporaryWidgetOffset.dy,
-                left: temporaryWidgetOffset.dx,
-                child: Container(
-                  width: dragController.value['widgets'][indexForTarget]['size'].width,
-                  height: dragController.value['widgets'][indexForTarget]['size'].height,
-                  color: Colors.red.withOpacity(0.5),
-                ),
-              ),
+            
           ValueListenableBuilder(
             valueListenable: dragController,
             builder: (context, value, child) {
@@ -75,13 +64,13 @@ class _GridTesteState extends State<GridTeste> {
                       left: positionsWidget[i]['positions'].dx,
                       child: addingDraggable(
                         Container(
-                          color: positionsWidget[i]['id'] == 1
+                           color: positionsWidget[i]['id'] == 1
                               ? Colors.red
                               : positionsWidget[i]['id'] == 2
                                   ? Colors.blue
                                   : Colors.green,
-                          width: 100,
-                          height: 100,
+                          width: positionsWidget[i]['size'].width,
+                          height: positionsWidget[i]['size'].height,
                         ),
                         Offset(
                           positionsWidget[i]['positions'].dx,
@@ -95,6 +84,17 @@ class _GridTesteState extends State<GridTeste> {
                         i,
                       ),
                     ),
+
+/*                   if (isDragging)
+                    Positioned(
+                      top: temporaryWidgetOffset.dy,
+                      left: temporaryWidgetOffset.dx,
+                      child: Container(
+                        width: dragController.value['widgets'][indexForTarget]['size'].width,
+                        height: dragController.value['widgets'][indexForTarget]['size'].height,
+                        color: Colors.red.withOpacity(0.5),
+                      ),
+                    ), */
                 ],
               );
             },
@@ -105,48 +105,53 @@ class _GridTesteState extends State<GridTeste> {
   }
 
   addingDraggable(Widget widget, Offset positions, Size sizes, int id, int index) {
-    return GestureDetector(
-      onPanStart: (details) {
+  return GestureDetector(
+    onPanStart: (details) {
+      setState(() {
+        isDragging = true;
+        temporaryWidgetOffset = positions; // Inicia na posição do widget clicado
+        initialDragOffset = positions;
+        indexForTarget = index;
+      });
+    },
+    onPanUpdate: (details) {
+      final newOffset = Offset(
+        positions.dx + details.delta.dx,
+        positions.dy + details.delta.dy,
+      );
+
+      dragController.changePositions(newOffset, index, id);
+
+      final distanceMoved = (newOffset - initialDragOffset).distance;
+
+      if (distanceMoved > 1) { // Ajuste para mover o target mais suavemente
         setState(() {
-          isDragging = true;
-          temporaryWidgetOffset = positions; // Inicia na posição do widget clicado
-          initialDragOffset = positions;
-          indexForTarget = index;
+          temporaryWidgetOffset = Offset(
+            temporaryWidgetOffset.dx + details.delta.dx,
+            temporaryWidgetOffset.dy + details.delta.dy,
+          );
+          initialDragOffset = newOffset;
         });
-      },
-      onPanUpdate: (details) {
-        final newOffset = Offset(
-          positions.dx + details.delta.dx,
-          positions.dy + details.delta.dy,
-        );
+      }
 
-        dragController.changePositions(newOffset, index, id);
+      if (dragController.dragMode == true) {
+        dragController.checkColision(id, newOffset);
+      }
+    },
+    onPanEnd: (details) {
+      setState(() {
+        isDragging = false;
+        dragController.changePositions(temporaryWidgetOffset, index, id);
+      });
+    },
+    child: HitBoxWidget(
+      idHitBox: dragController.value['widgets'][index]['id'],
+      alertOverlaps: dragController.value['widgets'][index]['colisionColor'],
+      width: dragController.value['widgets'][index]['size'].width ,
+      height: dragController.value['widgets'][index]['size'].height ,
+      child: widget,
+    ),
+  );
+}
 
-        final distanceMoved = (newOffset - initialDragOffset).distance;
-
-        if (distanceMoved > 50) {
-          setState(() {
-            temporaryWidgetOffset = newOffset;
-            initialDragOffset = newOffset;
-          });
-        }
-
-        if (dragController.dragMode == true) {
-          dragController.checkColision(id, newOffset);
-        }
-      },
-      onPanEnd: (details) {
-        setState(() {
-          isDragging = false;
-        });
-      },
-      child: HitBoxWidget(
-        idHitBox: dragController.value['widgets'][index]['id'],
-        alertOverlaps: dragController.value['widgets'][index]['colisionColor'],
-        width: dragController.value['widgets'][index]['size'].width,
-        height: dragController.value['widgets'][index]['size'].height,
-        child: widget,
-      ),
-    );
-  }
 }
