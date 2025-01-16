@@ -16,7 +16,6 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
                 'positions': const Offset(400, 0),
                 'size': const Size(115, 115),
                 'colisionColor': Colors.transparent,
-                //sizeWidget :
               },
               {
                 'id': 3,
@@ -35,8 +34,17 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
   late dynamic widget2;
   late Widget widgetTarget;
 
-  getWidgetTarget(Widget widget) {
-    widgetTarget = widget;
+  late Widget widgetForTarget;
+  late Offset offsetWidget;
+  late Offset mousePointer;
+
+  bool isDragging = false;
+  ValueNotifier<Offset> temporaryWidgetOffset = ValueNotifier<Offset>(Offset.zero);
+  Offset initialDragOffset = Offset.zero; // Posição inicial do arrasto
+  late int indexForTarget;
+
+  getWidgetForTarget(Widget widget) {
+    widgetForTarget = widget;
   }
 
   changePositions(Offset positions, int index, int id) {
@@ -74,7 +82,7 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
         final verticalOverlap = atualBottom > otherTop && atualTop < otherBottom;
 
         if (horizontalOverlap && verticalOverlap) {
-          print('Houve uma colisão entre o widget $id e o widget ${otherWidget['id']}');
+          /*     print('Houve uma colisão entre o widget $id e o widget ${otherWidget['id']}'); */
           overlap = true;
           colisionChecked = true;
           switchPositonWidgetsOnDragUpdate(atualWidget, otherWidget, positions);
@@ -93,6 +101,7 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
   }
 
   switchPositonWidgetsOnDragUpdate(dynamic atualWidget, dynamic otherWidgets, Offset globalPosition) {
+    bool colision = false;
     // Coordenadas do widget atual
     final atualLeft = atualWidget['positions'].dx;
     final atualRight = atualLeft + atualWidget['size'].width;
@@ -100,7 +109,6 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
     final atualBottom = atualTop + atualWidget['size'].height;
 
     Offset newOffset = atualWidget['positions'];
-    bool canMove = true;
 
     // Coordenadas do outro widget
     final otherLeft = otherWidgets['positions'].dx;
@@ -124,22 +132,81 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
     if (minOverlap == overlapLeft.abs()) {
       // Colisão no lado esquerdo
       newOffset = Offset(otherLeft - atualWidget['size'].width, atualWidget['positions'].dy);
-      print('object');
+      colision = true;
     } else if (minOverlap == overlapRight.abs()) {
       // Colisão no lado direito
       newOffset = Offset(otherRight, atualWidget['positions'].dy);
+      colision = true;
     } else if (minOverlap == overlapTop.abs()) {
       // Colisão no topo
       newOffset = Offset(atualWidget['positions'].dx, otherTop - atualWidget['size'].height);
+      colision = true;
     } else if (minOverlap == overlapBottom.abs()) {
       // Colisão na parte inferior
       newOffset = Offset(atualWidget['positions'].dx, otherBottom);
+      colision = true;
     }
+
     atualWidget['positions'] = newOffset;
 
-    notifyListeners();
+// Verificar se o mouse ultrapassou o widget
+
+    // Verificar se o mouse ultrapassou o widget
+    if (colision == true) {
+      // Margens de tolerância configuráveis
+      const double horizontalMargin = 5.0;
+      const double verticalMargin = 5.0;
+
+      Offset newPosition = atualWidget['positions'];
+
+      // Verificar ultrapassagem horizontal
+      if ((mousePointer.dx > otherRight + horizontalMargin || mousePointer.dx < otherLeft - horizontalMargin)) {
+        newPosition = Offset(
+          mousePointer.dx - atualWidget['size'].width / 2,
+          newPosition.dy,
+        );
+        print('verticalll');
+      }
+
+      // Verificar ultrapassagem vertical
+      if ((mousePointer.dy > otherBottom + verticalMargin || mousePointer.dy < otherTop - verticalMargin)) {
+        newPosition = Offset(
+          newPosition.dx,
+          mousePointer.dy - atualWidget['size'].height / 2,
+        );
+        print('horizontal');
+      }
+
+      // Garantir que o widget não entre dentro do outro
+      final adjustedLeft = newPosition.dx;
+      final adjustedTop = newPosition.dy;
+      final adjustedRight = adjustedLeft + atualWidget['size'].width;
+      final adjustedBottom = adjustedTop + atualWidget['size'].height;
+
+      if (!(adjustedRight > otherLeft && adjustedLeft < otherRight && adjustedBottom > otherTop && adjustedTop < otherBottom)) {
+        atualWidget['positions'] = newPosition;
+      }
+
+      notifyListeners();
+    }
   }
-}
+
+/*     if (colision == true) {
+      // Margem de tolerância para detecção de ultrapassagem
+      const double margin = 20.0;
+
+      // Verificar ultrapassagem horizontal
+      if ((mousePointer.dx > otherRight + margin || mousePointer.dx < otherLeft - margin)) {
+        atualWidget['positions'] = Offset(mousePointer.dx - atualWidget['size'].width / 2, atualWidget['positions'].dy);
+      }
+
+      // Verificar ultrapassagem vertical
+      if ((mousePointer.dy > otherBottom + margin || mousePointer.dy < otherTop - margin)) {
+        atualWidget['positions'] = Offset(atualWidget['positions'].dx, mousePointer.dy - atualWidget['size'].height / 2);
+      }
+
+      notifyListeners();
+    } */
 
 /* 
     /colision logic
@@ -177,3 +244,4 @@ class DragController extends ValueNotifier<Map<String, dynamic>> {
 
 
  */
+}
