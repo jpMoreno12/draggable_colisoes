@@ -31,17 +31,7 @@ class GridTeste extends StatefulWidget {
 }
 
 class _GridTesteState extends State<GridTeste> {
-  DragController dragController = DragController();
-  bool isDragging = false;
-  Offset temporaryWidgetOffset = Offset.zero;
-  Offset initialDragOffset = Offset.zero; // Posição inicial do arrasto
-  late int indexForTarget;
-  OverlayEntry? _overlayEntry;
-
-  @override
-  void initState() {
-    super.initState();
-  }
+  DragController dragController = DragController();  
 
   @override
   Widget build(BuildContext context) {
@@ -49,144 +39,123 @@ class _GridTesteState extends State<GridTeste> {
       appBar: AppBar(
         backgroundColor: Colors.blue,
       ),
-      body: Stack(
-        children: [
-          ValueListenableBuilder(
-            valueListenable: dragController,
-            builder: (context, value, child) {
-              final positionsWidget = value['widgets'];
-              return Stack(
-                children: [
-                  for (int i = 0; i < positionsWidget.length; i++)
-                    Positioned(
-                      top: positionsWidget[i]['positions'].dy,
-                      left: positionsWidget[i]['positions'].dx,
-                      child: addingDraggable(
-                        Container(
-                          color: positionsWidget[i]['id'] == 1
-                              ? Colors.red
-                              : positionsWidget[i]['id'] == 2
-                                  ? Colors.blue
-                                  : Colors.green,
-                          width: positionsWidget[i]['size'].width,
-                          height: positionsWidget[i]['size'].height,
-                        ),
-                        Offset(
-                          positionsWidget[i]['positions'].dx,
-                          positionsWidget[i]['positions'].dy,
-                        ),
-                        Size(
-                          positionsWidget[i]['size'].width,
-                          positionsWidget[i]['size'].height,
-                        ),
-                        positionsWidget[i]['id'],
-                        i,
-                      ),
+      body: ValueListenableBuilder(
+        valueListenable: dragController,
+        builder: (context, value, child) {
+          final positionsWidget = value['widgets'];
+          return Stack(
+            children: [ 
+              for (int i = 0; i < positionsWidget.length; i++)
+                Positioned(
+                  top: positionsWidget[i]['position'].dy,
+                  left: positionsWidget[i]['position'].dx,
+                  child: _addingDraggable(
+                    Container(
+                      color: positionsWidget[i]['id'] == 1
+                          ? Colors.red
+                          : positionsWidget[i]['id'] == 2
+                              ? Colors.blue
+                              : Colors.green,
+                      width: positionsWidget[i]['size'].width,
+                      height: positionsWidget[i]['size'].height,
                     ),
-                ],
-              );
-            },
-          ),
-        ],
+                    i, 
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  addingDraggable(Widget widget, Offset positions, Size sizes, int id, int index) {
-    return GestureDetector(
-      onPanStart: (details) {
-        setState(() {
-          dragController.getWidgetForTarget(widget);
-          isDragging = true;
-          temporaryWidgetOffset = positions; // Inicia na posição do widget clicado
-          initialDragOffset = positions;
-          indexForTarget = index;
-        });
-        _showOverlay(context, widget, temporaryWidgetOffset);
-      },
-      onPanUpdate: (details) {
-        final newOffset = Offset(
-          positions.dx + details.delta.dx,
-          positions.dy + details.delta.dy,
-        );
+  _addingDraggable(Widget widget, int index) {
+    
+    return ValueListenableBuilder(
+        valueListenable: dragController,
+        builder: (context, value, child) {
+          
+          Offset positions = Offset(value['widgets'][index]['position'].dx, value['widgets'][index]['position'].dy);
+          Size size = Size(value['widgets'][index]['size'].width, value['widgets'][index]['size'].height);
+          int id = value['widgets'][index]['id'];
 
-        dragController.changePositions(newOffset, index, id);
-        dragController.mousePointer = temporaryWidgetOffset;
+          return Positioned(
+            top: positions.dy,
+            left: positions.dx,
+            child:  GestureDetector(
+              onPanStart: (details) {
+                dragController.getWidgetForTarget(widget);
+                dragController.isDragging.value = true;
 
-        final distanceMoved = (newOffset - initialDragOffset).distance;
+                // Ativa o estado de arrasto
+                //overlay inicia-se na mesma posicao do widget
 
-        if (distanceMoved > 0.1) {
-          // Ajuste para mover o target mais suavemente
-          setState(() {
-            temporaryWidgetOffset = Offset(
-              temporaryWidgetOffset.dx + details.delta.dx,
-              temporaryWidgetOffset.dy + details.delta.dy ,
-            );
-            _updateOverlayPosition(temporaryWidgetOffset);
-          });
-        }
+                dragController.widgetPosition = positions;
+                dragController.positionOverlay = positions;
+                dragController.indexForTarget = index;
+                dragController.showOverlay(context, widget, positions);
+                dragController.notifyListeners();
+              },
+              onPanUpdate: (details) {
+                dragController.positionOverlay = Offset(
+                  dragController.positionOverlay.dx + details.delta.dx,
+                  dragController.positionOverlay.dy + details.delta.dy,
+                );
+                dragController.updateOverlayPosition(dragController.positionOverlay, context);
 
-        if (dragController.dragMode == true) {
-          dragController.checkColision(id, newOffset);
-        }
-      },
-      onPanEnd: (details) {
-        setState(() {
-          isDragging = false;
-        });
-        _removeOverlay();
-      },
-      child: isDragging && indexForTarget == index
-          ? Positioned(
-            
-            child: TargetWidget(
-                id: id,
-                width: sizes.width,
-                height: sizes.height,
-              ),
-          )
-          : HitBoxWidget(
-              idHitBox: dragController.value['widgets'][index]['id'],
-              alertOverlaps: dragController.value['widgets'][index]['colisionColor'],
-              width: sizes.width,
-              height: sizes.height,
-              child: widget,
+                dragController.widgetPosition = Offset(dragController.widgetPosition.dx + details.delta.dx, dragController.widgetPosition.dy + details.delta.dy);
+
+                Future.delayed(Duration(milliseconds: 5), () {
+                  dragController.changePositions(
+                    dragController.widgetPosition,
+                    value['widgets'][index]['id'],
+                    index,
+                  );
+                });
+
+                //REAJUSTANDO O WIDGET PARA QUE ELE NAO ULTRAPASSE OS LIMITES DA TELA
+                if (dragController.widgetPosition.dx + value['widgets'][index]['size'].width >= MediaQuery.of(context).size.width || dragController.widgetPosition.dx < 0 || dragController.widgetPosition.dy + value['widgets'][index]['size'].height >= MediaQuery.of(context).size.height || dragController.widgetPosition.dy < 0) {
+                  double maxX = MediaQuery.of(context).size.width - value['widgets'][index]['size'].width;
+                  double maxY = MediaQuery.of(context).size.height - value['widgets'][index]['size'].height;
+
+                  // 🔹 Garante que o widget não ultrapasse os limites da tela
+                  dragController.widgetPosition = Offset(
+                    dragController.widgetPosition.dx.clamp(0, maxX),
+                    dragController.widgetPosition.dy.clamp(0, maxY),
+                  );
+
+                  // 🔹 Também ajusta a posição do `positionOverlay` para não sair da tela
+                  if (dragController.positionOverlay.dx + value['widgets'][index]['size'].width >= MediaQuery.of(context).size.width || dragController.positionOverlay.dx < 0 || dragController.positionOverlay.dy + value['widgets'][index]['size'].height >= MediaQuery.of(context).size.height || dragController.positionOverlay.dy < 0) {
+                    dragController.positionOverlay = Offset(
+                      dragController.positionOverlay.dx.clamp(0, maxX),
+                      dragController.positionOverlay.dy.clamp(0, maxY),
+                    );
+                  }
+                }
+
+                dragController.notifyListeners();
+              },
+              onPanEnd: (details) {
+                dragController.isDragging.value = false;
+                dragController.removeOverlay();
+                dragController.notifyListeners();
+              },
+              child: dragController.isDragging.value && dragController.indexForTarget == index
+                  //colocar o widget positioned aqui dentro para fazer o desability do draggable
+                  ? TargetWidget(
+                      id: id,
+                      width: size.width,
+                      height: size.height,
+                    )
+                  : HitBoxWidget(
+                      idHitBox: id,
+                      alertOverlaps: dragController.value['widgets'][index]['colisionColor'],
+                      width: size.width,
+                      height: size.height,
+                      child: widget,
+                    ),
             ),
-    );
-  }
-
-  void _showOverlay(BuildContext context, Widget widget, Offset startPosition) {
-    final overlay = Overlay.of(context);
-    _overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        left: startPosition.dx,
-        top: startPosition.dy,
-        child: Material(
-          color: Colors.red,
-          child: widget,
-        ),
-      ),
-    );
-    overlay.insert(_overlayEntry!);
-  }
-
-  void _updateOverlayPosition(Offset newPosition) {
-    _overlayEntry?.remove();
-    _overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        left: newPosition.dx,
-        top: newPosition.dy,
-        child: Material(
-          color: Colors.transparent,
-          child: dragController.widgetForTarget,
-        ),
-      ),
-    );
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+          );
+        });
   }
 }
